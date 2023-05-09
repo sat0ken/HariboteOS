@@ -40,12 +40,32 @@ entry:
 		MOV		CH,0			; シリンダ0を指定
 		MOV		DH,0			; ヘッド0を指定
 		MOV		CL,2			; セクタ番号を指定
+
+readloop:
+		MOV		SI,0			; 失敗回数を数えるレジスタ
+
+retry:
 		MOV		AH,0x02			; ディスク読み込み
 		MOV		AL,1			; 処理するセクタ数
 		MOV		BX,0
 		MOV		DL,0x00			; ドライブ番号を指定、Aドライブ
 		INT		0x13			; ディスクBIOS呼び出し
-		JC		err
+		JNC		next			; エラーが起きなければnextへ
+		ADD		SI,1			; SIに1を足す
+		CMP		SI,5			; SIを5と比較
+		JAE		err				; SI >= 5 だったらerrへ
+		MOV		AH,0x00
+		MOV		DL,0x00			; Aドライブを指定
+		INT		0x13			; ドライブのリセット
+		JMP 	retry
+
+next:
+		MOV		AX,ES			; アドレスを0x200進める
+		ADD		AX,0x0020
+		MOV		ES,AX			; ADD ES, 0x020という命令がないのでこうしている
+		ADD		CL,1			; CLに1を足す
+		CMP		CL,18			; CLと18を比較
+		JBE		readloop		; CL <= 18 だったらreadloopへ
 
 putloop:
 		MOV		AL,[SI]

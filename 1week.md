@@ -155,6 +155,60 @@ entry:
 
 JCは`jump if carry`の略、carryフラグが1だったらジャンプせよ
 
+- [x] エラーになったらやり直そう
+
+
+`entry`を以下のように変更
+JNCは条件ジャンプ命令、「jump if not carry」キャリーフラグが0ならジャンプ
+JAEも条件ジャンプ「jump if above or equal」大きいか等しければジャンプ
+
+```
+entry:
+		MOV		AX,0			; レジスタ初期化
+		MOV		SS,AX
+		MOV		SP,0x7c00
+		MOV		DS,AX
+
+; ディスクを読む
+		MOV		AX,0x0820
+		MOV		ES,AX
+		MOV		CH,0			; シリンダ0を指定
+		MOV		DH,0			; ヘッド0を指定
+		MOV		CL,2			; セクタ番号を指定
+		MOV		SI,0			; 失敗回数を数えるレジスタ
+
+retry:
+		MOV		AH,0x02			; ディスク読み込み
+		MOV		AL,1			; 処理するセクタ数
+		MOV		BX,0
+		MOV		DL,0x00			; ドライブ番号を指定、Aドライブ
+		INT		0x13			; ディスクBIOS呼び出し
+		JNC		fin				; エラーが起きなければfinへ
+		ADD		SI,1			; SIに1を足す
+		CMP		SI,5			; SIを5と比較
+		JAE		err				; SI >= 5 だったらerrへ
+		MOV		AH,0x00
+		MOV		DL,0x00			; Aドライブを指定
+		INT		0x13			; ドライブのリセット
+		JMP 	retry
+```
+
+- [x] 18セクタまで読んでみる
+
+`next`を追加してretryに`JNC next`入れて呼ぶ
+JBEは「jump if below or equal」小さいか等しければジャンプ
+
+```
+next:
+		MOV		AX,ES			; アドレスを0x200進める
+		ADD		AX,0x0020
+		MOV		ES,AX			; ADD ES, 0x020という命令がないのでこうしている
+		ADD		CL,1			; CLに1を足す
+		CMP		CL,18			; CLと18を比較
+		JBE		readloop		; CL <= 18 だったらreadloopへ
+```
+
+
 ## 4日目 C言語と画面表示の練習
 
 ## 5日目 構造体と文字表示とGDT/IDT初期化
