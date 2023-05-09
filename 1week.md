@@ -124,10 +124,36 @@ HLTはCPU停止
 - [x] ブートセクタだけを作るように整理
 - [x] 今後のためにMakefile導入
 
-
-
-
 ## 3日目 32ビットモード突入とC言語導入 
+
+- [x] さあ本当のIPLを作ろう
+
+IPL=初期プログラムローダ
+
+entryプログラムを以下のようにする
+
+```
+entry:
+		MOV		AX,0			; レジスタ初期化
+		MOV		SS,AX
+		MOV		SP,0x7c00
+		MOV		DS,AX
+
+; ディスクを読む
+		MOV		AX,0x0820
+		MOV		ES,AX
+		MOV		CH,0			; シリンダ0を指定
+		MOV		DH,0			; ヘッド0を指定
+		MOV		CL,2			; セクタ番号を指定
+		MOV		AH,0x02			; ディスク読み込み
+		MOV		AL,1			; 処理するセクタ数
+		MOV		BX,0
+		MOV		DL,0x00			; ドライブ番号を指定、Aドライブ
+		INT		0x13			; ディスクBIOS呼び出し
+		JC		err
+```
+
+JCは`jump if carry`の略、carryフラグが1だったらジャンプせよ
 
 ## 4日目 C言語と画面表示の練習
 
