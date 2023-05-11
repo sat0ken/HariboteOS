@@ -1,8 +1,8 @@
 img :
-	nasm helloos3.nas -o ipl.img -l ipl.lst
+	nasm helloos3.asm -o ipl.img -l ipl.lst
 
 run : ipl.img Makefile
-	qemu-system-i386 -fda ipl.img
+	NO_AT_BRIDGE=1 qemu-system-i386 -drive file=ipl.img,format=raw,if=floppy
 
 clean:
 	rm ipl.img; rm ipl.lst
