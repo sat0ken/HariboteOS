@@ -1,0 +1,28 @@
+GAS LISTING asmfunc.s 			page 1
+
+
+   1              	.arch i486              # 486の命令まで使いたい
+   2              	
+   3              	.text
+   4              	
+   5              	.global io_hlt
+   6              	
+   7              	.global write_mem8
+   8              	
+   9              	io_hlt:                 # void io_hlt(void);
+  10 0000 F4       	    hlt
+  11 0001 C3       	    ret
+  12              	
+  13              	write_mem8:             # void write_mem8(int addr, int data);
+  14 0002 8B4C2404 	    movl 4(%esp), %ecx  # esp+4にaddrが入っているのでそれをecxに読み込む
+  15 0006 8A442408 	    movb 8(%esp), %al   # esp+8にdataが入っているのでそれあおalに読み込む
+  16 000a 8801     	    mov %al, (%ecx)
+  17 000c C3       	    ret
+GAS LISTING asmfunc.s 			page 2
+
+
+DEFINED SYMBOLS
+           asmfunc.s:9      .text:0000000000000000 io_hlt
+           asmfunc.s:13     .text:0000000000000002 write_mem8
+
+NO UNDEFINED SYMBOLS

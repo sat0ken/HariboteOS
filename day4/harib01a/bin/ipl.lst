@@ -1,0 +1,161 @@
+GAS LISTING ipl.s 			page 1
+
+
+   1              	.text
+   2              	.code16
+   3              	
+   4              	# 以下は標準的なFAT12フォーマットフロッピーディスクのための記述
+   5              	
+   6 0000 EB4E     	jmp entry
+   7 0002 90       	.byte 0x90
+   8 0003 48454C4C 	.ascii "HELLOIPL"
+   8      4F49504C 
+   9 000b 0002     	.word 512               # 1セクタの大きさ（512にしなければならない）
+  10 000d 01       	.byte 1                 # クラスタの大きさ（1セクタにしなければならない）
+  11 000e 0100     	.word 1                 # FATがどこから始まるか（普通は1セクタ目からにする）
+  12 0010 02       	.byte 2                 # FATの個数（2にしなければならない）
+  13 0011 E000     	.word 224               # ルートディレクトリの大きさ（普通は224エントリにす�
+  14 0013 400B     	.word 2880              # このドライブの大きさ（2880セクタにしなければならな
+  15 0015 F0       	.byte 0xf0              # メディアのタイプ（0xf0にしなければならない）
+  16 0016 0900     	.word 9                 # FAT領域の長さ（9セクタにしなければならない）
+  17 0018 1200     	.word 18                # 1トラックにいくつのセクタがあるか（18にしなければ�
+  18 001a 0200     	.word 2                 # ヘッドの数（2にしなければならない）
+  19 001c 00000000 	.int 0                  # パーティションを使っていないのでここは必ず0
+  20 0020 400B0000 	.int 2880               # このドライブの大きさをもう一度書く
+  21 0024 000029   	.byte 0,0,0x29          # よくわからないけどこの値にしておくといいらしい
+  22 0027 FFFFFFFF 	.int 0xffffffff         # たぶんボリュームシリアル番号
+  23 002b 48454C4C 	.ascii "HELLO-OS   "    # ディスクの名前（11バイト）
+  23      4F2D4F53 
+  23      202020
+  24 0036 46415431 	.ascii "FAT12   "       # フォーマットの名前（8バイト）
+  24      32202020 
+  25 003e 00000000 	.skip 18,0              # とりあえず18バイトあけておく
+  25      00000000 
+  25      00000000 
+  25      00000000 
+  25      0000
+  26              	
+  27              	.set CYLS, 10           # シリンダを読む回数を定数で定義
+  28              	.set _CYLS, 0xff0
+  29              	
+  30              	# これより以下がプログラム本体
+  31              	
+  32              	entry:
+  33 0050 B80000   	    movw $0, %ax        # レジスタ初期化
+  34 0053 8ED0     	    movw %ax, %ss
+  35 0055 BC007C   	    movw $0x7c00, %sp
+  36 0058 8ED8     	    movw %ax, %ds
+  37              	
+  38              	    # ディスクを読む
+  39 005a B82008   	    movw $0x0820, %ax
+  40 005d 8EC0     	    movw %ax, %es
+  41 005f B500     	    movb $0, %ch        # シリンダ0を指定
+  42 0061 B600     	    movb $0, %dh        # ヘッド0を指定
+  43 0063 B102     	    movb $2, %cl        # セクタ2を指定
+  44              	
+  45              	readloop:
+  46 0065 BE0000   	    movw $0, %si        # 失敗回数を数えるレジスタ
+  47              	
+  48              	retry:
+  49 0068 B402     	    movb $0x02, %ah     # AH=0x02 : ディスク読み込み
+GAS LISTING ipl.s 			page 2
+
+
+  50 006a B001     	    movb $1, %al        # 1セクタ
+  51 006c BB0000   	    movw $0, %bx
+  52 006f B200     	    movb $0x00, %dl     # Aドライブ
+  53 0071 CD13     	    int $0x13           # ディスクBIOS呼び出し
+  54 0073 7310     	    jnc next            # エラーが起きなければnextへ
+  55 0075 83C601   	    add $1, %si         # SIに1を足す
+  56 0078 83FE05   	    cmp $5, %si         # SIを5と比較
+  57 007b 7336     	    jae error           # SI >= 5 だったらerrorへ
+  58              	
+  59              	    # reset drive
+  60 007d B400     	    movb $0x00, %ah
+  61 007f B200     	    movb $0x00, %dl     # Aドライブを指定
+  62 0081 CD13     	    int $0x13           # ドライブのリセット
+  63              	
+  64 0083 EBCB     	    jmp entry
+  65              	
+  66              	next:
+  67 0085 8CC0     	    movw %es, %ax       # アドレス0x200進める
+  68 0087 83C020   	    add $0x20, %ax      # 512 / 16 = 0x20
+  69 008a 8EC0     	    movw %ax, %es       # ADD ES, 0x020という命令がないのでこうしている
+  70 008c 80C101   	    add $1, %cl         # CLに1を足す
+  71 008f 80F912   	    cmp $18, %cl        # CLと18を比較
+  72 0092 76D1     	    jbe readloop        # CL <= 18だったらreadloopへ
+  73              	
+  74 0094 B101     	    movb $1, %cl
+  75 0096 80C601   	    add $1, %dh
+  76 0099 80FE02   	    cmp $2, %dh
+  77 009c 72C7     	    jb readloop         # DH < 2だったらreadloopへ
+  78              	
+  79 009e B600     	    movb $0, %dh
+  80 00a0 80C501   	    add $1, %ch
+  81 00a3 80FD0A   	    cmp $CYLS, %ch
+  82 00a6 72BD     	    jb readloop         # CH < CYLSだったらreadloopへ
+  83              	
+  84              	# 読み終わったのでharibote.sysを実行する
+  85 00a8 C606F00F 	    movb $CYLS, (_CYLS)
+  85      0A
+  86 00ad E90000   	    jmp 0xc200          # haribote.sysの番地へ飛ぶ
+  87              	
+  88              	fin:
+  89 00b0 F4       	    hlt                 # 何かあるまでCPUを停止させる
+  90 00b1 EBFD     	    jmp fin             # 無限ループ
+  91              	
+  92              	error:
+  93 00b3 BE0000   	    movw $msg, %si
+  94              	
+  95              	putloop:
+  96 00b6 8A04     	    movb (%si), %al
+  97 00b8 83C601   	    addw $1, %si        # SIに1を足す
+  98 00bb 3C00     	    cmpb $0, %al
+  99 00bd 74F1     	    je fin
+ 100 00bf B40E     	    movb $0x0e, %ah     # 1文字表示ファンクション
+ 101 00c1 BB0F00   	    movw $15, %bx       # カラーコード
+ 102 00c4 CD10     	    int $0x10           # ビデオBIOS呼び出し
+ 103 00c6 EBEE     	    jmp putloop
+ 104              	
+ 105              	 msg:
+GAS LISTING ipl.s 			page 3
+
+
+ 106 00c8 0A6C6F61 	    .string "\nload error\n\n"
+ 106      64206572 
+ 106      726F720A 
+ 106      0A00
+ 107              	
+ 108 00d6 00000000 	  .org 0x01fe
+ 108      00000000 
+ 108      00000000 
+ 108      00000000 
+ 108      00000000 
+ 109 01fe 55AA     	  .byte 0x55, 0xaa
+ 110              	
+ 111              	
+ 112              	
+ 113              	
+ 114              	
+ 115              	
+ 116              	
+ 117              	
+ 118              	
+ 119              	
+ 120              	
+GAS LISTING ipl.s 			page 4
+
+
+DEFINED SYMBOLS
+               ipl.s:32     .text:0000000000000050 entry
+               ipl.s:27     *ABS*:000000000000000a CYLS
+               ipl.s:28     *ABS*:0000000000000ff0 _CYLS
+               ipl.s:45     .text:0000000000000065 readloop
+               ipl.s:48     .text:0000000000000068 retry
+               ipl.s:66     .text:0000000000000085 next
+               ipl.s:92     .text:00000000000000b3 error
+               ipl.s:88     .text:00000000000000b0 fin
+               ipl.s:105    .text:00000000000000c8 msg
+               ipl.s:95     .text:00000000000000b6 putloop
+
+NO UNDEFINED SYMBOLS
