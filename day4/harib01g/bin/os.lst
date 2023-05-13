@@ -1,0 +1,192 @@
+GAS LISTING asmhead.s 			page 1
+
+
+   1              	.text
+   2              	.code16
+   3              	
+   4              	.set BOTPAK, 0x00280000         # bootpackのロード先
+   5              	.set DSKCAC, 0x00100000         # ディスクキャッシュの場所
+   6              	.set DSKCAC0, 0x00008000        # ディスクキャッシュの場所（リアルモード）
+   7              	
+   8              	# BOOTINFO関係
+   9              	.set CYLS, 0x0ff0               # ブートセクタが設定する
+  10              	.set LEDS, 0x0ff1
+  11              	.set VMODE, 0x0ff2              # 色数に関する情報。何ビットカラーか？
+  12              	.set SCRNX, 0x0ff4              # 解像度のX
+  13              	.set SCRNY, 0x0ff6              # 解像度のY
+  14              	.set VRAM, 0x0ff8               # グラフィックバッファの開始番地
+  15              	
+  16              	# 画面モードを設定
+  17 0000 B013     	    movb $0x13, %al             # VGAグラフィックスカラー、320x200x8bitカラー
+  18 0002 B400     	    movb $0x00, %ah
+  19 0004 CD10     	    int $0x10
+  20              	
+  21 0006 C606F20F 	    movb $8, (VMODE)            # 画面モードをメモする（C言語が参照する）
+  21      08
+  22 000b C706F40F 	    movw $320, (SCRNX)
+  22      4001
+  23 0011 C706F60F 	    movw $200, (SCRNY)
+  23      C800
+  24 0017 66C706F8 	    movl $0x000a0000, (VRAM)
+  24      0F00000A 
+  24      00
+  25              	
+  26              	# キーボードのLED状態をBIOSに教えてもらう
+  27 0020 B402     	    movb $0x02, %ah
+  28 0022 CD16     	    int $0x16
+  29 0024 A2F10F   	    movb %al, (LEDS)
+  30              	
+  31              	# PICが一切の割り込みを受け付けないようにする
+  32              	# AT互換機の仕様ではPICの初期化をするなら、こいつをCLI前にやっておか�
+  33              	# PICの初期化はあとでやる
+  34 0027 B0FF     	    movb $0xff, %al
+  35 0029 E621     	    outb %al, $0x21
+  36 002b 90       	    nop
+  37 002c E6A1     	    outb %al, $0xa1
+  38              	
+  39 002e FA       	    cli                         # さらにCPUレベルでも割り込み禁止
+  40              	
+  41              	# CPUから1MB以上のメモリにアクセスできるように、A20GATEを設定
+  42 002f E8B500   	    call waitkbdout
+  43 0032 B0D1     	    movb $0xd1, %al
+  44 0034 E664     	    outb %al, $0x64
+  45 0036 E8AE00   	    call waitkbdout
+  46 0039 B0DF     	    movb $0xdf, %al
+  47 003b E660     	    outb %al, $0x60
+  48 003d E8A700   	    call waitkbdout
+  49              	
+  50              	# プロテクトモード移行
+  51              	.arch i486
+  52              	
+GAS LISTING asmhead.s 			page 2
+
+
+  53 0040 0F011600 	    lgdt (GDTR0)                # 暫定GDTを設定
+  53      00
+  54 0045 0F20C0   	    movl %cr0, %eax
+  55 0048 6625FFFF 	    andl $0x7fffffff, %eax      # bit31を0にする（ページング禁止のため）
+  55      FF7F
+  56 004e 6683C801 	    orl $0x00000001, %eax       # bit0を1にする（プロテクトモード移行のため）
+  57 0052 0F22C0   	    movl %eax, %cr0
+  58 0055 EB00     	    jmp pipelineflush
+  59              	
+  60              	 pipelineflush:
+  61 0057 B80800   	    movw $1*8, %ax              # 読み書き可能セグメント32bit
+  62 005a 8ED8     	    movw %ax, %ds
+  63 005c 8EC0     	    movw %ax, %es
+  64 005e 8EE0     	    movw %ax, %fs
+  65 0060 8EE8     	    movw %ax, %gs
+  66 0062 8ED0     	    movw %ax, %ss
+  67              	
+  68              	# bootpackの転送
+  69 0064 66BE0000 	movl $bootpack, %esi            # 転送元
+  69      0000
+  70 006a 66BF0000 	movl $BOTPAK, %edi              # 転送先
+  70      2800
+  71 0070 66B90000 	movl $512*1024/4, %ecx
+  71      0200
+  72 0076 E87500   	call memcpy
+  73              	
+  74              	# ついでにディスクデータも本来の位置へ転送
+  75              	# まずはブートセクタから
+  76 0079 66BE007C 	movl $0x7c00, %esi              # 転送元
+  76      0000
+  77 007f 66BF0000 	movl $DSKCAC, %edi              # 転送先
+  77      1000
+  78 0085 66B98000 	movl $512/4, %ecx
+  78      0000
+  79 008b E86000   	call memcpy
+  80              	
+  81              	# 残り全部
+  82 008e 66BE0082 	movl $DSKCAC0+512, %esi         # 転送元
+  82      0000
+  83 0094 66BF0002 	movl $DSKCAC+512, %edi          # 転送先
+  83      1000
+  84 009a 66B90000 	movl $0, %ecx
+  84      0000
+  85 00a0 8A0EF00F 	movb (CYLS), %cl
+  86 00a4 6669C900 	imull $512*18*2/4, %ecx         # シリンダ数からバイト数/4に変換
+  86      120000
+  87 00ab 6681E980 	sub $512/4, %ecx                # IPLの分だけ差し引く
+  87      000000
+  88 00b2 E83900   	call memcpy
+  89              	
+  90              	# asmheadでしなければいけないことは全部終わったのであとはbootpackに任せ�
+  91              	# bootpackの起動
+  92 00b5 66BB0000 	movl $BOTPAK, %ebx
+  92      2800
+  93 00bb 67668B4B 	movl 16(%ebx), %ecx
+  93      10
+  94 00c0 6683C103 	add $3, %ecx                    # ECX += 3
+GAS LISTING asmhead.s 			page 3
+
+
+  95 00c4 66C1E902 	SHR $2, %ecx                    # ECX /= 4
+  96 00c8 7410     	jz skip                         # 転送するべきものがない
+  97 00ca 67668B73 	movl 20(%ebx), %esi             # 転送元
+  97      14
+  98 00cf 6601DE   	add %ebx, %esi
+  99 00d2 67668B7B 	movl 12(%ebx), %edi             # 転送先
+  99      0C
+ 100 00d7 E81400   	call memcpy
+ 101              	
+ 102              	skip:
+ 103 00da 67668B63 	    mov 12(%ebx), %esp          # スタック初期値
+ 103      0C
+ 104 00df 66EA1B00 	    ljmpl $2*8, $0x0000001b
+ 104      00001000 
+ 105              	
+ 106              	waitkbdout:
+ 107 00e7 E464     	    inb $0x64, %al
+ 108 00e9 2402     	    andb $0x02, %al
+ 109 00eb 75FA     	    jnz waitkbdout              # ANDの結果が0でなければwaitkbdoutへ
+ 110 00ed C3       	    ret
+ 111              	
+ 112              	memcpy:
+ 113 00ee 67668B06 	    movl (%esi), %eax
+ 114 00f2 6683C604 	    add $4, %esi
+ 115 00f6 67668907 	    movl %eax, (%edi)
+ 116 00fa 6683C704 	    add $4, %edi
+ 117 00fe 6683E901 	    sub $1, %ecx
+ 118 0102 75EA     	    jnz memcpy                  # 引き算した結果が0でなければwaitkbdoutへ
+ 119 0104 C3       	    ret
+ 120              	
+ 121 0105 8DB40000 	.align 16
+ 121      8DB40000 
+ 121      8D7400
+ 122              	GDT0:
+ 123 0110 00000000 	    .skip 8, 0x00
+ 123      00000000 
+ 124 0118 FFFF0000 	    .word 0xffff, 0x0000, 0x9200, 0x00cf    # 読み書き可能セグメント32bit
+ 124      0092CF00 
+ 125 0120 FFFF0000 	    .word 0xffff, 0x0000, 0x9a28, 0x0047    # 実行可能セグメント 32bit（bootpack用)
+ 125      289A4700 
+ 126 0128 0000     	    .word 0x0000
+ 127              	
+ 128              	GDTR0:
+ 129 012a 1700     	    .word 8*3-1
+ 130 012c 00000000 	    .int GDT0
+ 131              	
+ 132              	bootpack:
+GAS LISTING asmhead.s 			page 4
+
+
+DEFINED SYMBOLS
+           asmhead.s:4      *ABS*:0000000000280000 BOTPAK
+           asmhead.s:5      *ABS*:0000000000100000 DSKCAC
+           asmhead.s:6      *ABS*:0000000000008000 DSKCAC0
+           asmhead.s:9      *ABS*:0000000000000ff0 CYLS
+           asmhead.s:10     *ABS*:0000000000000ff1 LEDS
+           asmhead.s:11     *ABS*:0000000000000ff2 VMODE
+           asmhead.s:12     *ABS*:0000000000000ff4 SCRNX
+           asmhead.s:13     *ABS*:0000000000000ff6 SCRNY
+           asmhead.s:14     *ABS*:0000000000000ff8 VRAM
+           asmhead.s:106    .text:00000000000000e7 waitkbdout
+           asmhead.s:128    .text:000000000000012a GDTR0
+           asmhead.s:60     .text:0000000000000057 pipelineflush
+           asmhead.s:132    .text:0000000000000130 bootpack
+           asmhead.s:112    .text:00000000000000ee memcpy
+           asmhead.s:102    .text:00000000000000da skip
+           asmhead.s:122    .text:0000000000000110 GDT0
+
+NO UNDEFINED SYMBOLS

@@ -1,0 +1,110 @@
+GAS LISTING asmfunc.s 			page 1
+
+
+   1              	.arch i486              # 486の命令まで使いたい
+   2              	
+   3              	.text
+   4              	
+   5              	.global io_hlt, io_cli, io_sit, io_stihlt
+   6              	.global io_in8, io_in16, io_in32
+   7              	.global io_out8, io_out16, io_out32
+   8              	.global io_load_eflags, io_store_eflags
+   9              	
+  10              	# void io_hlt(void);
+  11              	io_hlt:
+  12 0000 F4       	    hlt
+  13 0001 C3       	    ret
+  14              	
+  15              	# void io_cli(void);
+  16              	io_cli:
+  17 0002 FA       	    cli
+  18 0003 C3       	    ret
+  19              	
+  20              	# void io_sti(void);
+  21              	io_sti:
+  22 0004 FB       	    sti
+  23 0005 C3       	    ret
+  24              	
+  25              	# void io_stihlt(void);
+  26              	io_stihlt:
+  27 0006 FB       	    sti
+  28 0007 F4       	    hlt
+  29 0008 C3       	    ret
+  30              	
+  31              	# int io_in8(int port);
+  32              	io_in8:
+  33 0009 8B542404 	    movl 4(%esp), %edx
+  34 000d B8000000 	    movl $0, %eax
+  34      00
+  35 0012 EC       	    inb %dx, %al
+  36 0013 C3       	    ret
+  37              	
+  38              	# int io_in16(int port);
+  39              	io_in16:
+  40 0014 8B542404 	    movl 4(%esp), %edx
+  41 0018 B8000000 	    movl $0, %eax
+  41      00
+  42 001d 66ED     	    inw %dx, %ax
+  43 001f C3       	    ret
+  44              	
+  45              	# int io_in32(int port);
+  46              	io_in32:
+  47 0020 8B542404 	    movl 4(%esp), %edx
+  48 0024 ED       	    inl %dx, %eax
+  49 0025 C3       	    ret
+  50              	
+  51              	# io_out8(int port, int data);
+  52              	io_out8:
+  53 0026 8B542404 	    movl 4(%esp), %edx
+  54 002a 8A442408 	    movb 8(%esp), %al
+  55 002e EE       	    outb %al, %dx
+GAS LISTING asmfunc.s 			page 2
+
+
+  56 002f C3       	    ret
+  57              	
+  58              	# io_out16(int port, int data);
+  59              	io_out16:
+  60 0030 8B542404 	    movl 4(%esp), %edx
+  61 0034 8B442408 	    movl 8(%esp), %eax
+  62 0038 66EF     	    outw %ax, %dx
+  63 003a C3       	    ret
+  64              	
+  65              	# io_out32(int port, int data);
+  66              	io_out32:
+  67 003b 8B542404 	    movl 4(%esp), %edx
+  68 003f 8B442408 	    movl 8(%esp), %eax
+  69 0043 EF       	    outl %eax, %dx
+  70 0044 C3       	    ret
+  71              	
+  72              	# int io_load_eflags(void);
+  73              	io_load_eflags:
+  74 0045 9C       	    pushf       # push flag EFLAGSをスタックに押し込む
+  75 0046 58       	    pop %eax    # pop flag  EFLAGSをスタックから飛ばす=取り出す
+  76 0047 C3       	    ret
+  77              	
+  78              	# void io_store_eflags(void);
+  79              	io_store_eflags:
+  80 0048 8B442404 	    movl 4(%esp), %eax
+  81 004c 50       	    push %eax
+  82 004d 9D       	    popf
+  83 004e C3       	    ret
+GAS LISTING asmfunc.s 			page 3
+
+
+DEFINED SYMBOLS
+           asmfunc.s:11     .text:0000000000000000 io_hlt
+           asmfunc.s:16     .text:0000000000000002 io_cli
+           asmfunc.s:26     .text:0000000000000006 io_stihlt
+           asmfunc.s:32     .text:0000000000000009 io_in8
+           asmfunc.s:39     .text:0000000000000014 io_in16
+           asmfunc.s:46     .text:0000000000000020 io_in32
+           asmfunc.s:52     .text:0000000000000026 io_out8
+           asmfunc.s:59     .text:0000000000000030 io_out16
+           asmfunc.s:66     .text:000000000000003b io_out32
+           asmfunc.s:73     .text:0000000000000045 io_load_eflags
+           asmfunc.s:79     .text:0000000000000048 io_store_eflags
+           asmfunc.s:21     .text:0000000000000004 io_sti
+
+UNDEFINED SYMBOLS
+io_sit
